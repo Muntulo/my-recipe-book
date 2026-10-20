@@ -21,6 +21,8 @@ struct RecipeDetailView: View {
     }
     
     var body: some View {
+        let estimate = NutritionService.estimate(for: recipe.ingredients)
+
         ScrollView {
             VStack(alignment: .leading, spacing: 28) {
                 // Hero Header
@@ -113,6 +115,45 @@ struct RecipeDetailView: View {
                             Text(step.text)
                                 .font(.title3)
                                 .lineSpacing(4)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                
+                // Nutrition (estimated, on-device)
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 8) {
+                        Text("Nutrition")
+                            .font(.title2).bold()
+                        Text("Estimated")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    if estimate.isEmpty {
+                        Text("Not enough data to estimate")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        let perServingKcal = estimate.totalKcal / Double(scaledServings)
+                        let perServingProtein = estimate.totalProtein / Double(scaledServings)
+                        let perServingCarbs = estimate.totalCarbs / Double(scaledServings)
+                        let perServingFat = estimate.totalFat / Double(scaledServings)
+                        
+                        Text("\(Int(perServingKcal.rounded())) kcal · \(AmountFormatter.string((perServingProtein * 10).rounded() / 10))g protein · \(AmountFormatter.string((perServingCarbs * 10).rounded() / 10))g carbs · \(AmountFormatter.string((perServingFat * 10).rounded() / 10))g fat")
+                            .font(.body)
+                        Text("per serving")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        Text("Total: \(Int(estimate.totalKcal.rounded())) kcal · \(AmountFormatter.string((estimate.totalProtein * 10).rounded() / 10))g protein · \(AmountFormatter.string((estimate.totalCarbs * 10).rounded() / 10))g carbs · \(AmountFormatter.string((estimate.totalFat * 10).rounded() / 10))g fat")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        
+                        if !estimate.unmatchedNames.isEmpty {
+                            Text("\(estimate.unmatchedNames.count) ingredient(s) not counted")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
