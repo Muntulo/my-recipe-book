@@ -15,6 +15,7 @@ struct RecipeDetailView: View {
     @State private var unitSystem: UnitDisplay = .original
     @State private var showingEditSheet = false
     @State private var showingDeleteAlert = false
+    @State private var showingAddToGroceryList = false
     
     var scaledServings: Int {
         max(1, Int((Double(recipe.servings) * servingsMultiplier).rounded()))
@@ -50,6 +51,35 @@ struct RecipeDetailView: View {
                     }
                     .foregroundStyle(.secondary)
                     .font(.title3)
+                    
+                    if recipe.prepTime != nil || recipe.cookTime != nil {
+                        HStack(spacing: 16) {
+                            if let prepTime = recipe.prepTime {
+                                Label("\(prepTime) min prep", systemImage: "timer")
+                            }
+                            if let cookTime = recipe.cookTime {
+                                Label("\(cookTime) min cook", systemImage: "flame")
+                            }
+                        }
+                        .foregroundStyle(.secondary)
+                        .font(.title3)
+                    }
+                    
+                    if let cuisine = recipe.cuisine {
+                        Label(cuisine, systemImage: "fork.knife")
+                            .foregroundStyle(.secondary)
+                            .font(.title3)
+                    }
+                    
+                    if let rating = recipe.rating {
+                        HStack(spacing: 4) {
+                            ForEach(1...5, id: \.self) { index in
+                                Image(systemName: index <= rating ? "star.fill" : "star")
+                                    .foregroundStyle(.yellow)
+                            }
+                        }
+                        .font(.title3)
+                    }
                 }
                 .padding(.horizontal)
                 
@@ -175,6 +205,7 @@ struct RecipeDetailView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
+                    Button("Add to Grocery List") { showingAddToGroceryList = true }
                     Button("Edit Recipe") { showingEditSheet = true }
                     Button("Delete Recipe", role: .destructive) { showingDeleteAlert = true }
                 } label: {
@@ -184,6 +215,9 @@ struct RecipeDetailView: View {
         }
         .sheet(isPresented: $showingEditSheet) {
             EditRecipeView(recipe: recipe)
+        }
+        .sheet(isPresented: $showingAddToGroceryList) {
+            AddToGroceryListSheet(recipe: recipe, servingsMultiplier: servingsMultiplier)
         }
         .alert("Delete Recipe?", isPresented: $showingDeleteAlert) {
             Button("Delete", role: .destructive) {
