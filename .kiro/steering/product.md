@@ -40,6 +40,14 @@ Social/video import only ever touches PUBLIC content. Detailed strategy lives in
 the gitignored `monetization.md` at the repo root — do not commit that file or
 copy its contents into tracked files.
 
+## Git discipline (STRICT — agents have drifted on this)
+
+- **Never create git commits or branches unless the task prompt explicitly asks for it.** Default behavior is to leave all changes UNCOMMITTED in the working tree for the user to review. A prior workflow committed without being asked — do not repeat this.
+- **Never push.** Pushing is always a human decision made by the orchestrator/user, never by a workflow step.
+- Do not run `git add`/`git commit`/`git branch`/`git rebase`/`git reset` as part of implementing a feature. Verification is done by building (`xcodebuild`) and tracing, not by committing.
+- If you believe a commit is warranted, STOP and ask via your status channel rather than committing unilaterally.
+- Never stage or commit `monetization.md` (gitignored), `.agents/` artifacts, or `*.xcuserstate`.
+
 ## Code conventions
 
 - SwiftUI for all UI; SwiftData `@Model` types for persistence.
