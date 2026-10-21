@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 struct AddRecipeView: View {
     @Environment(\.modelContext) private var modelContext
@@ -12,6 +13,26 @@ struct AddRecipeView: View {
     
     @State private var rawIngredientsText = ""   // Big text area for ingredients
     @State private var rawInstructionsText = ""  // Big text area for instructions
+    
+    /// Optional original clipping image (from the OCR import flow) preserved on Save.
+    private let clippingImage: UIImage?
+    
+    /// Manual entry: blank form, no clipping. Preserves the existing `AddRecipeView()` call site.
+    init() {
+        self.clippingImage = nil
+    }
+    
+    /// Pre-filled entry from the OCR import flow. Seeds the same editable fields the manual
+    /// flow uses and preserves the original clipping image to attach on Save.
+    init(title: String = "",
+         rawIngredientsText: String = "",
+         rawInstructionsText: String = "",
+         clippingImage: UIImage? = nil) {
+        _title = State(initialValue: title)
+        _rawIngredientsText = State(initialValue: rawIngredientsText)
+        _rawInstructionsText = State(initialValue: rawInstructionsText)
+        self.clippingImage = clippingImage
+    }
     
     var body: some View {
         NavigationStack {
@@ -80,6 +101,11 @@ struct AddRecipeView: View {
         for (index, text) in instructionLines.enumerated() where !text.trimmingCharacters(in: .whitespaces).isEmpty {
             let instruction = Instruction(stepNumber: index + 1, text: text.trimmingCharacters(in: .whitespaces))
             newRecipe.instructions.append(instruction)
+        }
+        
+        // Preserve the original clipping photo when this recipe came from the OCR import flow.
+        if let clippingImage, let data = clippingImage.jpegData(compressionQuality: 0.8) {
+            newRecipe.photos.append(Photo(type: "clipping", imageData: data))
         }
         
         modelContext.insert(newRecipe)

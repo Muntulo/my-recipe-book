@@ -1,5 +1,7 @@
 import SwiftUI
 import SwiftData
+import PhotosUI
+import UIKit
 
 enum SidebarItem: Hashable {
     case allRecipes
@@ -13,6 +15,17 @@ struct LibraryView: View {
     @State private var searchText = ""
     @State private var showingAddSheet = false
     @State private var sidebarSelection: SidebarItem? = .allRecipes
+    
+    // MARK: Scan / Import from Photo
+    @State private var showingImportDialog = false
+    @State private var photoPickerItem: PhotosPickerItem?
+    @State private var showingPhotoPicker = false
+    @State private var showingScanner = false
+    @State private var isProcessingImage = false
+    @State private var importResult: OCRResult?
+    @State private var importImage: UIImage?
+    @State private var showingImportSheet = false
+    @State private var showingNoTextAlert = false
     
     var filteredRecipes: [Recipe] {
         if searchText.isEmpty {
@@ -54,6 +67,73 @@ struct LibraryView: View {
             AddRecipeView()
                 .presentationDetents([.large])
         }
+        .confirmationDialog("Import Recipe from Photo", isPresented: $showingImportDialog, titleVisibility: .visible) {
+            Button("Photo Library") { showingPhotoPicker = true }
+            if DocumentScannerView.isAvailable {
+                Button("Scan Document") { showingScanner = true }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .photosPicker(isPresented: $showingPhotoPicker, selection: $photoPickerItem, matching: .images)
+        .onChange(of: photoPickerItem) { _, newItem in
+            guard let newItem else { return }
+            Task { await loadPickedPhoto(newItem) }
+        }
+        .fullScreenCover(isPresented: $showingScanner) {
+            DocumentScannerView(
+                onScan: { image in
+                    showingScanner = false
+                    Task { await runOCR(on: image) }
+                },
+                onCancel: { showingScanner = false }
+            )
+            .ignoresSafeArea()
+        }
+        .sheet(isPresented: $showingImportSheet) {
+            AddRecipeView(
+                title: importResult?.titleGuess ?? "",
+                rawIngredientsText: importResult?.ingredientLines.joined(separator: "\n") ?? "",
+                rawInstructionsText: importResult?.instructionLines.joined(separator: "\n") ?? "",
+                clippingImage: importImage
+            )
+            .presentationDetents([.large])
+        }
+        .overlay {
+            if isProcessingImage {
+                ProgressView("Reading recipe…")
+                    .padding(24)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+            }
+        }
+        .alert("No text recognized", isPresented: $showingNoTextAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Couldn't read any text from that image. The form opened blank — you can type the recipe in or attach the photo and try another.")
+        }
+    }
+    
+    // MARK: - Import orchestration
+    
+    private func loadPickedPhoto(_ item: PhotosPickerItem) async {
+        photoPickerItem = nil
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            return
+        }
+        await runOCR(on: image)
+    }
+    
+    private func runOCR(on image: UIImage) async {
+        isProcessingImage = true
+        let result = await RecipeOCRService.recognize(from: image)
+        isProcessingImage = false
+        
+        importImage = image
+        importResult = result
+        showingImportSheet = true
+        if !result.foundText {
+            showingNoTextAlert = true
+        }
     }
     
     private var recipeGridContent: some View {
@@ -78,6 +158,11 @@ struct LibraryView: View {
         }
         .navigationTitle("All Recipes (\(recipes.count))")
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: { showingImportDialog = true }) {
+                    Label("Scan Recipe", systemImage: "doc.viewfinder")
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button(action: { showingAddSheet = true }) {
                     Label("Add Recipe", systemImage: "plus")
